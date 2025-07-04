@@ -1,0 +1,504 @@
+import React, { useState } from 'react';
+import { Search, Apple, Info, Loader2, Calculator, Plus } from 'lucide-react';
+
+export default function WWPointsCalculatorHybrid() {
+  const [mode, setMode] = useState('search'); // 'search' or 'manual'
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [selectedFood, setSelectedFood] = useState(null);
+  const [system, setSystem] = useState('smartpoints');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [servingSize, setServingSize] = useState(100);
+
+  // Manual entry states
+  const [calories, setCalories] = useState('');
+  const [protein, setProtein] = useState('');
+  const [fat, setFat] = useState('');
+  const [carbs, setCarbs] = useState('');
+  const [fiber, setFiber] = useState('');
+  const [sugar, setSugar] = useState('');
+  const [points, setPoints] = useState(null);
+
+  // Zero Point Foods (these always have 0 points regardless of calculation)
+  const zeroPointFoods = [
+    // Fruits (fresh, frozen, canned without added sugar)
+    'apple', 'banana', 'orange', 'grapes', 'strawberries', 'blueberries', 'blackberries', 'raspberries',
+    'watermelon', 'cantaloupe', 'honeydew', 'pineapple', 'mango', 'papaya', 'kiwi', 'peaches', 'pears',
+    'plums', 'cherries', 'grapefruit', 'lime', 'lemon', 'cranberries', 'pomegranate',
+    
+    // Vegetables (most non-starchy)
+    'broccoli', 'cauliflower', 'spinach', 'lettuce', 'kale', 'carrots', 'celery', 'cucumber',
+    'bell pepper', 'tomato', 'zucchini', 'asparagus', 'green beans', 'brussels sprouts', 'cabbage',
+    'onion', 'garlic', 'mushrooms', 'radishes', 'beets', 'artichoke',
+    
+    // Lean Proteins
+    'chicken breast', 'turkey breast', 'fish', 'salmon', 'tuna', 'cod', 'tilapia', 'shrimp',
+    'crab', 'lobster', 'eggs', 'egg whites', 'tofu', 'tempeh'
+  ];
+
+  // Enhanced food database with zero-point override
+  const foodDatabase = [
+    // Zero Point Foods
+    { name: 'Banana (medium, 118g)', calories: 105, protein: 1.3, fat: 0.4, carbs: 27, fiber: 3.1, sugar: 14.4, isZeroPoint: true },
+    { name: 'Apple (medium, 182g)', calories: 95, protein: 0.5, fat: 0.3, carbs: 25, fiber: 4.4, sugar: 19, isZeroPoint: true },
+    { name: 'Orange (medium, 154g)', calories: 62, protein: 1.2, fat: 0.2, carbs: 15.4, fiber: 3.1, sugar: 12.2, isZeroPoint: true },
+    { name: 'Strawberries (1 cup, 152g)', calories: 49, protein: 1, fat: 0.5, carbs: 11.7, fiber: 3, sugar: 7.4, isZeroPoint: true },
+    { name: 'Blueberries (1 cup, 148g)', calories: 84, protein: 1.1, fat: 0.5, carbs: 21.5, fiber: 3.6, sugar: 15, isZeroPoint: true },
+    { name: 'Grapes (1 cup, 151g)', calories: 104, protein: 1.1, fat: 0.2, carbs: 27.3, fiber: 1.4, sugar: 23.4, isZeroPoint: true },
+    { name: 'Watermelon (1 cup, 152g)', calories: 46, protein: 0.9, fat: 0.2, carbs: 11.5, fiber: 0.6, sugar: 9.4, isZeroPoint: true },
+    { name: 'Pineapple (1 cup, 165g)', calories: 82, protein: 0.9, fat: 0.2, carbs: 21.6, fiber: 2.3, sugar: 16.3, isZeroPoint: true },
+    
+    // Zero Point Vegetables
+    { name: 'Broccoli (1 cup, 91g)', calories: 25, protein: 3, fat: 0.3, carbs: 5, fiber: 2.3, sugar: 1.5, isZeroPoint: true },
+    { name: 'Spinach (1 cup, 30g)', calories: 7, protein: 0.9, fat: 0.1, carbs: 1.1, fiber: 0.7, sugar: 0.1, isZeroPoint: true },
+    { name: 'Carrots (1 cup, 128g)', calories: 52, protein: 1.2, fat: 0.3, carbs: 12.3, fiber: 3.6, sugar: 6, isZeroPoint: true },
+    { name: 'Bell Pepper (1 cup, 149g)', calories: 30, protein: 1, fat: 0.3, carbs: 7, fiber: 2.5, sugar: 4.2, isZeroPoint: true },
+    { name: 'Cucumber (1 cup, 119g)', calories: 16, protein: 0.7, fat: 0.1, carbs: 4, fiber: 0.5, sugar: 1.8, isZeroPoint: true },
+    { name: 'Tomato (medium, 123g)', calories: 22, protein: 1.1, fat: 0.2, carbs: 4.8, fiber: 1.5, sugar: 3.2, isZeroPoint: true },
+    
+    // Zero Point Proteins
+    { name: 'Chicken Breast (100g cooked)', calories: 165, protein: 31, fat: 3.6, carbs: 0, fiber: 0, sugar: 0, isZeroPoint: true },
+    { name: 'Turkey Breast (100g cooked)', calories: 135, protein: 30, fat: 1, carbs: 0, fiber: 0, sugar: 0, isZeroPoint: true },
+    { name: 'Salmon (100g cooked)', calories: 206, protein: 22, fat: 12, carbs: 0, fiber: 0, sugar: 0, isZeroPoint: true },
+    { name: 'Cod (100g cooked)', calories: 105, protein: 23, fat: 0.9, carbs: 0, fiber: 0, sugar: 0, isZeroPoint: true },
+    { name: 'Shrimp (100g cooked)', calories: 99, protein: 24, fat: 0.3, carbs: 0.2, fiber: 0, sugar: 0, isZeroPoint: true },
+    { name: 'Egg (1 large)', calories: 70, protein: 6, fat: 5, carbs: 0.6, fiber: 0, sugar: 0.6, isZeroPoint: true },
+    { name: 'Egg Whites (1 cup)', calories: 126, protein: 26, fat: 0.2, carbs: 1.8, fiber: 0, sugar: 1.8, isZeroPoint: true },
+    { name: 'Tofu (100g)', calories: 76, protein: 8, fat: 4.8, carbs: 1.9, fiber: 0.3, sugar: 0.6, isZeroPoint: true },
+    { name: 'Greek Yogurt (100g plain, nonfat)', calories: 59, protein: 10, fat: 0.4, carbs: 3.6, fiber: 0, sugar: 3.2, isZeroPoint: true },
+    
+    // Foods with Points
+    { name: 'Brown Rice (100g cooked)', calories: 112, protein: 2.6, fat: 0.9, carbs: 23, fiber: 1.8, sugar: 0.4, isZeroPoint: false },
+    { name: 'White Rice (100g cooked)', calories: 130, protein: 2.7, fat: 0.3, carbs: 28, fiber: 0.4, sugar: 0.1, isZeroPoint: false },
+    { name: 'Quinoa (100g cooked)', calories: 120, protein: 4.4, fat: 1.9, carbs: 22, fiber: 2.8, sugar: 0.9, isZeroPoint: false },
+    { name: 'Avocado (half, 100g)', calories: 160, protein: 2, fat: 14.7, carbs: 8.5, fiber: 6.7, sugar: 0.7, isZeroPoint: false },
+    { name: 'Almonds (28g/1oz)', calories: 164, protein: 6, fat: 14, carbs: 6, fiber: 3.5, sugar: 1.2, isZeroPoint: false },
+    { name: 'Peanut Butter (2 tbsp)', calories: 188, protein: 8, fat: 16, carbs: 8, fiber: 2, sugar: 3, isZeroPoint: false },
+    { name: 'Bread (1 slice whole wheat)', calories: 81, protein: 4, fat: 1.1, carbs: 14, fiber: 1.9, sugar: 1.4, isZeroPoint: false },
+    { name: 'White Bread (1 slice)', calories: 75, protein: 2.3, fat: 1, carbs: 14, fiber: 0.8, sugar: 1.4, isZeroPoint: false },
+    { name: 'Pasta (100g cooked)', calories: 131, protein: 5, fat: 1.1, carbs: 25, fiber: 1.8, sugar: 0.8, isZeroPoint: false },
+    { name: 'Cheddar Cheese (28g)', calories: 113, protein: 7, fat: 9, carbs: 1, fiber: 0, sugar: 0.5, isZeroPoint: false },
+    { name: 'Milk (1 cup, 2%)', calories: 122, protein: 8, fat: 4.8, carbs: 12, fiber: 0, sugar: 12, isZeroPoint: false },
+    { name: 'Olive Oil (1 tbsp)', calories: 119, protein: 0, fat: 13.5, carbs: 0, fiber: 0, sugar: 0, isZeroPoint: false },
+    { name: 'Pizza Slice (cheese, 107g)', calories: 272, protein: 12, fat: 10, carbs: 34, fiber: 2.5, sugar: 3.8, isZeroPoint: false },
+    { name: 'McDonald\'s Big Mac', calories: 550, protein: 25, fat: 33, carbs: 45, fiber: 3, sugar: 9, isZeroPoint: false },
+    { name: 'Starbucks Latte (Grande)', calories: 190, protein: 12, fat: 7, carbs: 18, fiber: 0, sugar: 17, isZeroPoint: false }
+  ];
+
+  const searchFoodsAPI = async (query) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      // Try to use a CORS proxy or direct API call
+      const proxyUrl = 'https://api.allorigins.win/raw?url=';
+      const apiUrl = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(query)}&pageSize=10&api_key=DEMO_KEY`;
+      
+      const response = await fetch(proxyUrl + encodeURIComponent(apiUrl));
+      
+      if (!response.ok) {
+        throw new Error('API request failed');
+      }
+
+      const data = await response.json();
+      setSearchResults(data.foods || []);
+    } catch (err) {
+      console.log('API failed, using local database');
+      // Fallback to local database
+      const localResults = foodDatabase.filter(food =>
+        food.name.toLowerCase().includes(query.toLowerCase())
+      ).map((food, index) => ({
+        fdcId: `local_${index}`,
+        description: food.name,
+        brandOwner: 'Local Database',
+        dataType: 'Nutrition Facts',
+        localData: food
+      }));
+      
+      setSearchResults(localResults);
+      if (localResults.length === 0) {
+        setError('No foods found. Try the manual entry mode or search for common foods like "chicken", "apple", or "bread".');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const selectFood = (food) => {
+    if (food.localData) {
+      // Use local data
+      const nutrition = food.localData;
+      setSelectedFood({
+        description: food.description,
+        brandOwner: 'Local Database',
+        nutrition: nutrition,
+        smartPoints: calculateSmartPoints(nutrition, nutrition.isZeroPoint),
+        pointsPlus: calculatePointsPlus(nutrition, nutrition.isZeroPoint),
+        isZeroPoint: nutrition.isZeroPoint
+      });
+    } else {
+      // This would be for API data (if CORS wasn't an issue)
+      setError('API food details not available due to browser restrictions. Try manual entry mode.');
+    }
+  };
+
+  const calculateSmartPoints = (nutrition, isZeroPoint = false) => {
+    // Zero point foods always return 0, regardless of nutritional content
+    if (isZeroPoint) return 0;
+    
+    const { calories, protein, fat, sugar } = nutrition;
+    const points = (calories * 0.0305) + (fat * 0.275) + (sugar * 0.12) - (protein * 0.098);
+    return Math.max(0, Math.round(points));
+  };
+
+  const calculatePointsPlus = (nutrition, isZeroPoint = false) => {
+    // Zero point foods always return 0, regardless of nutritional content
+    if (isZeroPoint) return 0;
+    
+    const { protein, carbs, fat, fiber } = nutrition;
+    const points = (protein * 0.097) + (carbs * 0.111) + (fat * 0.231) - (Math.min(fiber || 0, 4) * 0.118);
+    return Math.max(0, Math.round(points));
+  };
+
+  const calculateManualPoints = () => {
+    const nutrition = {
+      calories: parseFloat(calories) || 0,
+      protein: parseFloat(protein) || 0,
+      fat: parseFloat(fat) || 0,
+      carbs: parseFloat(carbs) || 0,
+      fiber: parseFloat(fiber) || 0,
+      sugar: parseFloat(sugar) || 0
+    };
+
+    if (system === 'smartpoints') {
+      setPoints(calculateSmartPoints(nutrition));
+    } else {
+      setPoints(calculatePointsPlus(nutrition));
+    }
+  };
+
+  const handleSearch = (e) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+    
+    // Debounce search
+    const timeoutId = setTimeout(() => {
+      searchFoodsAPI(value);
+    }, 500);
+    
+    return () => clearTimeout(timeoutId);
+  };
+
+  const resetAll = () => {
+    setSearchTerm('');
+    setSearchResults([]);
+    setSelectedFood(null);
+    setError('');
+    setCalories('');
+    setProtein('');
+    setFat('');
+    setCarbs('');
+    setFiber('');
+    setSugar('');
+    setPoints(null);
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-lg">
+      <div className="text-center mb-6">
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <Apple className="text-green-600" size={24} />
+          <h1 className="text-2xl font-bold text-gray-800">Weight Watchers Points Calculator</h1>
+        </div>
+        <p className="text-gray-600">Search foods or enter nutrition info manually</p>
+      </div>
+
+      {/* Mode Selection */}
+      <div className="mb-6">
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={() => setMode('search')}
+            className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+              mode === 'search' 
+                ? 'bg-blue-600 text-white' 
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            <Search className="inline mr-2" size={16} />
+            Search Foods
+          </button>
+          <button
+            onClick={() => setMode('manual')}
+            className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+              mode === 'manual' 
+                ? 'bg-blue-600 text-white' 
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            <Plus className="inline mr-2" size={16} />
+            Manual Entry
+          </button>
+        </div>
+      </div>
+
+      {/* System Selection */}
+      <div className="mb-6">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Points System
+        </label>
+        <div className="flex gap-4">
+          <label className="flex items-center">
+            <input
+              type="radio"
+              value="smartpoints"
+              checked={system === 'smartpoints'}
+              onChange={(e) => setSystem(e.target.value)}
+              className="mr-2"
+            />
+            <span>SmartPoints (Current)</span>
+          </label>
+          <label className="flex items-center">
+            <input
+              type="radio"
+              value="pointsplus"
+              checked={system === 'pointsplus'}
+              onChange={(e) => setSystem(e.target.value)}
+              className="mr-2"
+            />
+            <span>PointsPlus (Legacy)</span>
+          </label>
+        </div>
+      </div>
+
+      {mode === 'search' ? (
+        <>
+          {/* Search Input */}
+          <div className="relative mb-6">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={handleSearch}
+              placeholder="Search for foods (chicken, apple, pizza, etc.)..."
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {searchTerm && (
+              <button
+                onClick={resetAll}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                ×
+              </button>
+            )}
+          </div>
+
+          {/* Loading */}
+          {loading && (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="animate-spin text-blue-600" size={24} />
+              <span className="ml-2 text-gray-600">Searching foods...</span>
+            </div>
+          )}
+
+          {/* Search Results */}
+          {searchResults.length > 0 && !selectedFood && (
+            <div className="mb-6">
+              <h3 className="text-lg font-medium text-gray-700 mb-3">Search Results</h3>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {searchResults.map((food) => (
+                  <button
+                    key={food.fdcId}
+                    onClick={() => selectFood(food)}
+                    className="w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="font-medium text-gray-800">{food.description}</div>
+                        <div className="text-sm text-gray-500">
+                          {food.brandOwner || 'Generic'} • {food.dataType}
+                        </div>
+                      </div>
+                      <Calculator className="text-blue-600 flex-shrink-0" size={16} />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Selected Food */}
+          {selectedFood && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+              <h3 className="text-lg font-medium text-gray-800 mb-4">{selectedFood.description}</h3>
+              
+              <div className="text-center mb-4">
+                <div className="text-3xl font-bold text-blue-600 mb-2">
+                  {system === 'smartpoints' ? selectedFood.smartPoints : selectedFood.pointsPlus} Points
+                </div>
+                <div className="text-sm text-blue-600">
+                  {system === 'smartpoints' ? 'SmartPoints' : 'PointsPlus'}
+                  {selectedFood.isZeroPoint && <span className="ml-2 bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">ZeroPoint Food</span>}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div><span className="font-medium">Calories:</span> {selectedFood.nutrition.calories}</div>
+                <div><span className="font-medium">Protein:</span> {selectedFood.nutrition.protein}g</div>
+                <div><span className="font-medium">Fat:</span> {selectedFood.nutrition.fat}g</div>
+                <div><span className="font-medium">Carbs:</span> {selectedFood.nutrition.carbs}g</div>
+                <div><span className="font-medium">Fiber:</span> {selectedFood.nutrition.fiber}g</div>
+                <div><span className="font-medium">Sugar:</span> {selectedFood.nutrition.sugar}g</div>
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          {/* Manual Entry Form */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            {system === 'smartpoints' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Calories</label>
+                <input
+                  type="number"
+                  value={calories}
+                  onChange={(e) => setCalories(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="0"
+                  min="0"
+                  step="0.1"
+                />
+              </div>
+            )}
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Protein (g)</label>
+              <input
+                type="number"
+                value={protein}
+                onChange={(e) => setProtein(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="0"
+                min="0"
+                step="0.1"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Total Fat (g)</label>
+              <input
+                type="number"
+                value={fat}
+                onChange={(e) => setFat(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="0"
+                min="0"
+                step="0.1"
+              />
+            </div>
+
+            {system === 'pointsplus' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Carbohydrates (g)</label>
+                  <input
+                    type="number"
+                    value={carbs}
+                    onChange={(e) => setCarbs(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="0"
+                    min="0"
+                    step="0.1"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Fiber (g)</label>
+                  <input
+                    type="number"
+                    value={fiber}
+                    onChange={(e) => setFiber(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="0"
+                    min="0"
+                    step="0.1"
+                  />
+                </div>
+              </>
+            )}
+
+            {system === 'smartpoints' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Sugar (g)</label>
+                <input
+                  type="number"
+                  value={sugar}
+                  onChange={(e) => setSugar(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="0"
+                  min="0"
+                  step="0.1"
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-4 mb-6">
+            <button
+              onClick={calculateManualPoints}
+              className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors font-medium"
+            >
+              Calculate Points
+            </button>
+            <button
+              onClick={resetAll}
+              className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 transition-colors font-medium"
+            >
+              Reset
+            </button>
+          </div>
+
+          {points !== null && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center mb-6">
+              <div className="text-3xl font-bold text-green-800 mb-2">
+                {points} {points === 1 ? 'Point' : 'Points'}
+              </div>
+              <div className="text-sm text-green-600">
+                {system === 'smartpoints' ? 'SmartPoints' : 'PointsPlus'} Value
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Error Display */}
+      {error && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+          <p className="text-yellow-800">{error}</p>
+        </div>
+      )}
+
+      {/* Info */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-start gap-2">
+          <Info className="text-blue-600 mt-0.5" size={16} />
+          <div className="text-sm text-blue-800">
+            <p className="font-medium mb-1">Two ways to get points:</p>
+            <p>
+              <strong>Search Mode:</strong> Look up foods including ZeroPoint foods (most fruits, vegetables, lean proteins). <br />
+              <strong>Manual Mode:</strong> Enter nutrition facts from any food label to calculate exact points.
+            </p>
+            <p className="mt-2 text-xs">
+              <strong>ZeroPoint Foods:</strong> Fresh fruits, most vegetables, and lean proteins are 0 points regardless of nutritional content!
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
